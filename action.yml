@@ -1,0 +1,26 @@
+name: Check status of all preceding jobs in this workflow
+inputs:
+  GITHUB_TOKEN:
+    description:
+      GitHub token to be used by `gh` CLI.  Pass `secrets.GITHUB_TOKEN`.
+runs:
+  using: "composite"
+  steps:
+    - name: "Dump jobs' conclusion"
+      run: |
+        gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs \
+          --jq '.jobs[] | select(.conclusion != null) | { name, conclusion }'
+      env:
+        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+      shell: bash
+    - name: "Check test matrix"
+      run: |
+        num_non_successes="$(
+          gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs \
+            --jq '[.jobs[] | .conclusion | select(. != null and . != "success")] | length' \
+        )"
+        echo "num_non_successes = $num_non_successes"
+        [ "$num_non_successes" = 0 ]
+      env:
+        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+      shell: bash
